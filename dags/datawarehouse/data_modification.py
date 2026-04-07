@@ -9,7 +9,7 @@ def insert_rows(cur, conn, schema, row):
 
         if schema == "staging":
 
-            video_id = 'video_id'
+            video_id = 'id'
 
             cur.execute(
                 f"""INSERT INTO {schema}.{table}("Video_ID", "Video_Title", "Upload_Date", "Duration", "Video_Views", "Likes_Count", "Comments_Count")
@@ -70,6 +70,8 @@ def update_rows(cur, conn, schema, row):
             """, row
         )
         conn.commit()
+        logger.info(f"Updated row with Video_ID: {row[video_id]}")
+
     except Exception as e:
         logger.error(f"Error updating row with Video_ID: {row[video_id]} - {e}")
         raise e

@@ -1,4 +1,5 @@
 from api.video_stats import get_playlist_id, get_video_id, get_videos_details, save_to_json
+from datawarehouse.dwh import staging_table, core_table
 from airflow import DAG
 import pendulum
 from datetime import datetime, timedelta
@@ -37,4 +38,21 @@ with DAG(
 
     #Define the dependencies
     playlist_id >> video_ids >> extract_data >> save_to_json_task
+
+
+with DAG(
+    dag_id="Updating_Database",
+    default_args=default_args,
+    description="Process the JSON file and insert the data into staging schema then convert into the core schema",
+    schedule='0 15 * * *',
+    catchup=False,
+
+) as dag:
+    
+    #Define the tasks
+    update_staging = staging_table()
+    update_core = core_table()
+
+    #Define the dependencies
+    update_staging >> update_core
 

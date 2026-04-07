@@ -109,7 +109,7 @@ def get_videos_details(video_ids):
                 "duration" : contentDetails["duration"],
                 "viewCount" : statistics.get("viewCount", None),
                 "likeCount" : statistics.get("likeCount", None),
-                "commentCount": statistics.get("viewCount", None),
+                "commentCount": statistics.get("commentCount", None),
 
                 }
                 extracted_data.append(video_data)

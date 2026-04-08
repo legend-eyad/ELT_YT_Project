@@ -3,6 +3,7 @@ from datawarehouse.dwh import staging_table, core_table
 from airflow import DAG
 import pendulum
 from datetime import datetime, timedelta
+from dataquality.soda import yt_elt_data_quality
 
 local_tz = pendulum.timezone("Europe/Budapest")
 
@@ -20,6 +21,9 @@ default_args = {
 
 
 }
+
+staging_schema = "staging"
+core_schema = "core"
 
 with DAG(
     dag_id="produce_json",
@@ -56,3 +60,18 @@ with DAG(
     #Define the dependencies
     update_staging >> update_core
 
+with DAG(
+    dag_id="Data_Quality",
+    default_args=default_args,
+    description="DAG to check the data quality on both schemas in the database",
+    schedule='0 16 * * *',
+    catchup=False,
+
+) as dag:
+    
+    #Define the tasks
+    soda_validate_staging = yt_elt_data_quality(staging_schema)
+    soda_validate_core = yt_elt_data_quality(core_schema)
+
+    #Define the dependencies
+    soda_validate_staging >> soda_validate_core

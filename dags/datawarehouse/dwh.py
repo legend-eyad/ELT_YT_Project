@@ -82,6 +82,8 @@ def core_table():
 
                 if transformed_row["Video_ID"] in table_ids:
                     update_rows(cur, conn, schema, transformed_row)
+                else:
+                    insert_rows(cur, conn, schema, transformed_row)
         
         ids_to_delete = set(table_ids) - current_video_ids
 

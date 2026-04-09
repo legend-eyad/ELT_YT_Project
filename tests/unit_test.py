@@ -31,7 +31,7 @@ def test_dags_integrity(dagbag):
     assert dagbag.size()
     print(f"dag size = {dagbag.size()}")
 
-    expected_dag_tasks = {"produce_json": 4, "Updating_Database" : 2, "Data_Quality" : 2}
+    expected_dag_tasks = {"produce_json": 5, "Updating_Database" : 3, "Data_Quality" : 3}
     print("=========")
     for dag_id, dag in dagbag.dags.items():
         expected_count = expected_dag_tasks[dag_id]

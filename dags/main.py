@@ -1,7 +1,8 @@
 from api.video_stats import get_playlist_id, get_video_id, get_videos_details, save_to_json
 from datawarehouse.dwh import staging_table, core_table
 from airflow import DAG
-from airflow.operators.trigger_dagrun import TriggerDagRunOperator, EmptyOperator
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+from airflow.operators.empty import EmptyOperator
 import pendulum
 from datetime import datetime, timedelta
 from dataquality.soda import yt_elt_data_quality

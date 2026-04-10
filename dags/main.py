@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from dataquality.soda import yt_elt_data_quality
 import os
 
+IS_TEST = os.getenv("AIRFLOW_TEST_MODE", "false") == "true"
 local_tz = pendulum.timezone("Europe/Budapest")
 
 #default args

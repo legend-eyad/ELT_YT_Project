@@ -23,7 +23,7 @@ jobs:
         with:
           files: |
             Dockerfile
-            requirements.txt
+            **/requirements.txt
 
       - name: Set up Docker Buildx
         if: steps.changed-files-build.outputs.any_changed == 'true'
@@ -46,6 +46,7 @@ jobs:
   unit-and-integration-and-e2e-tests:
     runs-on: ubuntu-latest
     needs: build-and-push-image
+
     env:
       AIRFLOW_WWW_USER_PASSWORD: ${{ secrets.AIRFLOW_WWW_USER_PASSWORD }}
       AIRFLOW_WWW_USER_USERNAME: ${{ secrets.AIRFLOW_WWW_USER_USERNAME }}
@@ -56,6 +57,8 @@ jobs:
       ELT_DATABASE_NAME: ${{ secrets.ELT_DATABASE_NAME }}
       ELT_DATABASE_PASSWORD: ${{ secrets.ELT_DATABASE_PASSWORD }}
       ELT_DATABASE_USERNAME: ${{ secrets.ELT_DATABASE_USERNAME }}
+      ELT_DATABASE_HOST: ${{ secrets.POSTGRES_CONN_HOST }}
+      ELT_DATABASE_PORT: ${{ secrets.POSTGRES_CONN_PORT }}
       FERNET_KEY: ${{ secrets.FERNET_KEY }}
       METADATA_DATABASE_NAME: ${{ secrets.METADATA_DATABASE_NAME }}
       METADATA_DATABASE_PASSWORD: ${{ secrets.METADATA_DATABASE_PASSWORD }}
@@ -70,8 +73,6 @@ jobs:
       DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE }}
       DOCKERHUB_REPOSITORY: ${{ vars.DOCKERHUB_REPOSITORY }}
       DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
-      ELT_DATABASE_HOST: ${{ secrets.POSTGRES_CONN_HOST }}
-      ELT_DATABASE_PORT: ${{ secrets.POSTGRES_CONN_PORT }}
 
     steps:
       - name: Checkout code
@@ -85,11 +86,56 @@ jobs:
             dags/**
             include/**
             docker-compose.yaml
-            requirements.txt
+            **/requirements.txt
+
+      - name: Debug changed files
+        run: |
+          echo "ANY CHANGED: ${{ steps.changed-files-tests.outputs.any_changed }}"
+          echo "FILES:"
+          echo "${{ steps.changed-files-tests.outputs.all_changed_files }}"
+
+      - name: Determine affected DAGs
+        id: affected-dags
+        run: |
+          CHANGED_FILES="${{ steps.changed-files-tests.outputs.all_changed_files }}"
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          AFFECTED_DAGS=()
+
+          # If core infra changes → run ALL DAGs
+          if echo "$CHANGED_FILES" | grep -E "docker-compose.yaml|requirements.txt"; then
+            AFFECTED_DAGS=("produce_json" "Updating_Database" "Data_Quality")
+          else
+            if echo "$CHANGED_FILES" | grep -E "dags/produce_json"; then
+              AFFECTED_DAGS+=("produce_json")
+            fi
+
+            if echo "$CHANGED_FILES" | grep -E "dags/Updating_Database|datawarehouse"; then
+              AFFECTED_DAGS+=("Updating_Database")
+            fi
+
+            if echo "$CHANGED_FILES" | grep -E "Data_Quality|soda"; then
+              AFFECTED_DAGS+=("Data_Quality")
+            fi
+          fi
+
+          UNIQUE_DAGS=$(printf "%s\n" "${AFFECTED_DAGS[@]}" | sort -u)
+
+          echo "Affected DAGs:"
+          echo "$UNIQUE_DAGS"
+
+          echo "dags<<EOF" >> $GITHUB_OUTPUT
+          echo "$UNIQUE_DAGS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Set up Docker compose
         if: steps.changed-files-tests.outputs.any_changed == 'true'
         run: docker compose up -d
+
+      - name: Wait for services
+        if: steps.changed-files-tests.outputs.any_changed == 'true'
+        run: sleep 15
 
       - name: Run unit and integration tests
         if: steps.changed-files-tests.outputs.any_changed == 'true'
@@ -98,10 +144,17 @@ jobs:
       - name: Run end-to-end DAG tests
         if: steps.changed-files-tests.outputs.any_changed == 'true'
         run: |
-          DAG_NAMES=("produce_json" "Updating_Database" "Data_Quality")
-          for DAG in "${DAG_NAMES[@]}"; do
+          if [ -z "${{ steps.affected-dags.outputs.dags }}" ]; then
+            echo "No DAGs affected. Skipping."
+            exit 0
+          fi
+
+          echo "Running DAGs:"
+          echo "${{ steps.affected-dags.outputs.dags }}"
+
+          while IFS= read -r DAG; do
             docker exec -t airflow-worker sh -c "airflow dags test $DAG"
-          done
+          done <<< "${{ steps.affected-dags.outputs.dags }}"
 
       - name: Tear down docker compose
         if: steps.changed-files-tests.outputs.any_changed == 'true'

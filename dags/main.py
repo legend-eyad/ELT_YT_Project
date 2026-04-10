@@ -1,11 +1,13 @@
 from api.video_stats import get_playlist_id, get_video_id, get_videos_details, save_to_json
 from datawarehouse.dwh import staging_table, core_table
 from airflow import DAG
-from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator, EmptyOperator
 import pendulum
 from datetime import datetime, timedelta
 from dataquality.soda import yt_elt_data_quality
+import os
 
+IS_TEST = os.getenv("AIRFLOW_TEST_MODE", "false").lower() == "true"
 local_tz = pendulum.timezone("Europe/Budapest")
 
 #default args
@@ -41,10 +43,15 @@ with DAG(
     extract_data = get_videos_details(video_ids)
     save_to_json_task = save_to_json(extract_data)
 
-    trigger_Updating_Database = TriggerDagRunOperator(
-        task_id="trigger_Updating_Database",
-        trigger_dag_id="Updating_Database",
-    )
+    if not IS_TEST:
+        trigger_Updating_Database = TriggerDagRunOperator(
+            task_id="trigger_Updating_Database",
+            trigger_dag_id="Updating_Database",
+        )
+    else:
+        trigger_Updating_Database = EmptyOperator(
+            task_id="trigger_Updating_Database"
+        )
 
     #Define the dependencies
     playlist_id >> video_ids >> extract_data >> save_to_json_task

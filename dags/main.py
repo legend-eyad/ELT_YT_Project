@@ -55,7 +55,7 @@ with DAG(
         )
 
     #Define the dependencies
-    playlist_id >> video_ids >> extract_data >> save_to_json_task
+    playlist_id >> video_ids >> extract_data >> save_to_json_task >> trigger_Updating_Database
 
 
 with DAG(
@@ -71,13 +71,18 @@ with DAG(
     update_staging = staging_table()
     update_core = core_table()
 
-    trigger_Data_Quality = TriggerDagRunOperator(
-        task_id = "trigger_Data_Quality",
-        trigger_dag_id="Data_Quality",
-    )
+    if not IS_TEST:
 
+        trigger_Data_Quality = TriggerDagRunOperator(
+            task_id = "trigger_Data_Quality",
+            trigger_dag_id="Data_Quality",
+        )
+    else:
+        trigger_Data_Quality = EmptyOperator(
+            task_id = "trigger_Data_Quality",
+        )
     #Define the dependencies
-    update_staging >> update_core
+    update_staging >> update_core >> trigger_Data_Quality
 
 with DAG(
     dag_id="Data_Quality",

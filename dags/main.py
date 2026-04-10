@@ -5,6 +5,7 @@ from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 import pendulum
 from datetime import datetime, timedelta
 from dataquality.soda import yt_elt_data_quality
+import os
 
 local_tz = pendulum.timezone("Europe/Budapest")
 
@@ -40,11 +41,12 @@ with DAG(
     video_ids = get_video_id(playlist_id)
     extract_data = get_videos_details(video_ids)
     save_to_json_task = save_to_json(extract_data)
+    if not IS_TEST:
 
-    trigger_Updating_Database = TriggerDagRunOperator(
-        task_id="trigger_Updating_Database",
-        trigger_dag_id="Updating_Database",
-    )
+        trigger_Updating_Database = TriggerDagRunOperator(
+            task_id="trigger_Updating_Database",
+            trigger_dag_id="Updating_Database",
+        )
 
     #Define the dependencies
     playlist_id >> video_ids >> extract_data >> save_to_json_task
@@ -63,10 +65,12 @@ with DAG(
     update_staging = staging_table()
     update_core = core_table()
 
-    trigger_Data_Quality = TriggerDagRunOperator(
-        task_id = "trigger_Data_Quality",
-        trigger_dag_id="Data_Quality",
-    )
+    if not IS_TEST:
+
+        trigger_Data_Quality = TriggerDagRunOperator(
+            task_id = "trigger_Data_Quality",
+            trigger_dag_id="Data_Quality",
+        )
 
     #Define the dependencies
     update_staging >> update_core

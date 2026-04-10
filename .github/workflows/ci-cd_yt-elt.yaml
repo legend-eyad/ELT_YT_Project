@@ -85,6 +85,7 @@ jobs:
             dags/**
             include/**
             docker-compose.yaml
+            requirements.txt
 
       - name: Set up Docker compose
         if: steps.changed-files-tests.outputs.any_changed == 'true'
